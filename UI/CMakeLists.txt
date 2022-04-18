@@ -127,6 +127,8 @@ target_sources(
           auth-listener.hpp
           obf.c
           obf.h
+          seker.h
+          seker.cpp
           obs-app.cpp
           obs-app.hpp
           obs-proxy-style.cpp

@@ -41,6 +41,7 @@
 #include <util/profiler.hpp>
 #include <util/dstr.hpp>
 
+#include "seker.h"
 #include "obs-app.hpp"
 #include "platform.hpp"
 #include "visibility-item-widget.hpp"
@@ -1791,6 +1792,10 @@ void OBSBasic::OBSInit()
 	obs_load_all_modules2(&mfi);
 	blog(LOG_INFO, "---------------------------------");
 	obs_log_loaded_modules();
+#ifdef _DEBUG
+    blog(LOG_INFO, "---------------------------------");
+    log_all_item_types();
+#endif
 	blog(LOG_INFO, "---------------------------------");
 	obs_post_load_modules();
 
@@ -4083,6 +4088,7 @@ void OBSBasic::SceneItemAdded(void *data, calldata_t *params)
 void OBSBasic::SourceCreated(void *data, calldata_t *params)
 {
 	obs_source_t *source = (obs_source_t *)calldata_ptr(params, "source");
+    log_all_property(source);
 
 	if (obs_scene_from_source(source) != NULL)
 		QMetaObject::invokeMethod(static_cast<OBSBasic *>(data),

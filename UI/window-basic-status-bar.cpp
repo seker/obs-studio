@@ -6,6 +6,7 @@
 #include "window-basic-main.hpp"
 #include "window-basic-status-bar.hpp"
 #include "window-basic-main-outputs.hpp"
+#include "seker.h"
 
 OBSBasicStatusBar::OBSBasicStatusBar(QWidget *parent)
 	: QStatusBar(parent),
@@ -238,6 +239,10 @@ void OBSBasicStatusBar::UpdateCPUUsage()
 
 	cpuUsage->setText(text);
 	cpuUsage->setMinimumWidth(cpuUsage->width());
+
+#ifdef _DEBUG
+	log_all_async_video_source_active_fps();
+#endif
 }
 
 void OBSBasicStatusBar::UpdateStreamTime()
