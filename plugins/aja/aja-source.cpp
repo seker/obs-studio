@@ -386,6 +386,14 @@ void AJASource::CaptureThread(AJAThread *thread, void *data)
 			obsFrame.color_matrix, obsFrame.color_range_min,
 			obsFrame.color_range_max);
 
+		long long delta_time = obsFrame.timestamp - ajaSource->last_timestamp;
+		if (delta_time >= 1000000000) {
+			ajaSource->active_fps = ajaSource->active_frame_count * 1000000000.0 / delta_time;
+			ajaSource->last_timestamp = obsFrame.timestamp;
+			ajaSource->active_frame_count = 0;
+		}
+		ajaSource->active_frame_count++;
+
 		obs_source_output_video2(ajaSource->mSource, &obsFrame);
 
 		card->SetInputFrame(channel, currentCardFrame);
@@ -769,6 +777,7 @@ void *aja_source_create(obs_data_t *settings, obs_source_t *source)
 	blog(LOG_DEBUG, "AJA Source Create");
 
 	auto ajaSource = new AJASource(source);
+	ajaSource->ResetActiveFpsContextData();
 
 	ajaSource->SetName(obs_source_get_name(source));
 
@@ -792,6 +801,7 @@ void aja_source_destroy(void *data)
 		blog(LOG_ERROR, "aja_source_destroy: Plugin instance is null!");
 		return;
 	}
+	ajaSource->ResetActiveFpsContextData();
 
 	ajaSource->Deactivate();
 
@@ -838,6 +848,8 @@ static void aja_source_show(void *data)
 		return;
 	}
 
+	ajaSource->ResetActiveFpsContextData();
+
 	bool deactivateWhileNotShowing =
 		ajaSource->GetSourceProps().deactivateWhileNotShowing;
 	bool showing = obs_source_showing(ajaSource->GetOBSSource());
@@ -857,6 +869,8 @@ static void aja_source_hide(void *data)
 	if (!ajaSource)
 		return;
 
+	ajaSource->ResetActiveFpsContextData();
+
 	bool deactivateWhileNotShowing =
 		ajaSource->GetSourceProps().deactivateWhileNotShowing;
 	bool showing = obs_source_showing(ajaSource->GetOBSSource());
@@ -872,12 +886,14 @@ static void aja_source_hide(void *data)
 
 static void aja_source_activate(void *data)
 {
-	UNUSED_PARAMETER(data);
+	auto ajaSource = (AJASource *)data;
+	ajaSource->ResetActiveFpsContextData();
 }
 
 static void aja_source_deactivate(void *data)
 {
-	UNUSED_PARAMETER(data);
+	auto ajaSource = (AJASource *)data;
+	ajaSource->ResetActiveFpsContextData();
 }
 
 static void aja_source_update(void *data, obs_data_t *settings)
@@ -890,6 +906,8 @@ static void aja_source_update(void *data, obs_data_t *settings)
 		     "aja_source_update: Plugin instance is null!");
 		return;
 	}
+
+	ajaSource->ResetActiveFpsContextData();
 
 	auto io_select = static_cast<IOSelection>(
 		obs_data_get_int(settings, kUIPropInput.id));
@@ -1166,6 +1184,12 @@ void aja_source_save(void *data, obs_data_t *settings)
 	}
 }
 
+static double aja_source_get_active_fps(void *data)
+{
+	AJASource *ajaSource = (AJASource *)data;
+	return ajaSource->active_fps;
+}
+
 void register_aja_source_info()
 {
 	struct obs_source_info aja_source_info = {};
@@ -1186,6 +1210,7 @@ void register_aja_source_info()
 	aja_source_info.get_defaults = aja_source_get_defaults_v1;
 	aja_source_info.save = aja_source_save;
 	aja_source_info.icon_type = OBS_ICON_TYPE_CAMERA;
+    aja_source_info.get_active_fps = aja_source_get_active_fps;
 	obs_register_source(&aja_source_info);
 
 	aja_source_info.version = 2;

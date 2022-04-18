@@ -69,7 +69,24 @@ struct ffmpeg_source {
 	enum obs_media_state state;
 	obs_hotkey_pair_id play_pause_hotkey;
 	obs_hotkey_id stop_hotkey;
+
+	uint64_t last_timestamp;
+	uint32_t active_frame_count;
+	double_t active_fps;
 };
+
+static inline void ffmpeg_source_reset_active_fps_context_data(struct ffmpeg_source *s)
+{
+	s->last_timestamp = 0;
+	s->active_frame_count = 0;
+	s->active_fps = 0.0;
+}
+
+static double ffmpeg_source_get_active_fps(void* data)
+{
+	struct ffmpeg_source *s = data;
+	return s->active_fps;
+}
 
 static void set_media_state(void *data, enum obs_media_state state)
 {
@@ -257,6 +274,13 @@ static void dump_source_info(struct ffmpeg_source *s, const char *input,
 static void get_frame(void *opaque, struct obs_source_frame *f)
 {
 	struct ffmpeg_source *s = opaque;
+	long long delta_time = f->timestamp - s->last_timestamp;
+	if (delta_time >= 1000000000) {
+		s->active_fps = s->active_frame_count * 1000000000.0 / delta_time;
+		s->last_timestamp = f->timestamp;
+		s->active_frame_count = 0;
+	}
+	s->active_frame_count++;
 	obs_source_output_video(s->source, f);
 }
 
@@ -612,6 +636,7 @@ static void ffmpeg_source_stop_hotkey(void *data, obs_hotkey_id id,
 static void *ffmpeg_source_create(obs_data_t *settings, obs_source_t *source)
 {
 	struct ffmpeg_source *s = bzalloc(sizeof(struct ffmpeg_source));
+	ffmpeg_source_reset_active_fps_context_data(s);
 	s->source = source;
 
 	s->hotkey = obs_hotkey_register_source(source, "MediaSource.Restart",
@@ -642,6 +667,7 @@ static void *ffmpeg_source_create(obs_data_t *settings, obs_source_t *source)
 static void ffmpeg_source_destroy(void *data)
 {
 	struct ffmpeg_source *s = data;
+	ffmpeg_source_reset_active_fps_context_data(s);
 
 	if (s->hotkey)
 		obs_hotkey_unregister(s->hotkey);
@@ -665,6 +691,7 @@ static void ffmpeg_source_destroy(void *data)
 static void ffmpeg_source_activate(void *data)
 {
 	struct ffmpeg_source *s = data;
+	ffmpeg_source_reset_active_fps_context_data(s);
 
 	if (s->restart_on_activate)
 		obs_source_media_restart(s->source);
@@ -673,6 +700,7 @@ static void ffmpeg_source_activate(void *data)
 static void ffmpeg_source_deactivate(void *data)
 {
 	struct ffmpeg_source *s = data;
+	ffmpeg_source_reset_active_fps_context_data(s);
 
 	if (s->restart_on_activate) {
 		if (s->media_valid) {
@@ -687,6 +715,7 @@ static void ffmpeg_source_deactivate(void *data)
 static void ffmpeg_source_play_pause(void *data, bool pause)
 {
 	struct ffmpeg_source *s = data;
+	ffmpeg_source_reset_active_fps_context_data(s);
 
 	if (!s->media_valid)
 		ffmpeg_source_open(s);
@@ -709,6 +738,7 @@ static void ffmpeg_source_play_pause(void *data, bool pause)
 static void ffmpeg_source_stop(void *data)
 {
 	struct ffmpeg_source *s = data;
+	ffmpeg_source_reset_active_fps_context_data(s);
 
 	if (s->media_valid) {
 		mp_media_stop(&s->media);
@@ -720,6 +750,7 @@ static void ffmpeg_source_stop(void *data)
 static void ffmpeg_source_restart(void *data)
 {
 	struct ffmpeg_source *s = data;
+	ffmpeg_source_reset_active_fps_context_data(s);
 
 	if (obs_source_showing(s->source))
 		ffmpeg_source_start(s);
@@ -817,4 +848,5 @@ struct obs_source_info ffmpeg_source = {
 	.media_get_time = ffmpeg_source_get_time,
 	.media_set_time = ffmpeg_source_set_time,
 	.media_get_state = ffmpeg_source_get_state,
+	.get_active_fps = ffmpeg_source_get_active_fps,
 };
