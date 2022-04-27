@@ -158,7 +158,7 @@ const char* BUTTON_TYPE_NAME[] = {
     "OBS_BUTTON_URL",
 };
 
-void log_property(obs_property_t *property, uint32_t index)
+void log_obs_property(obs_property_t *property, uint32_t index)
 {
     const char *name = obs_property_name(property);
     const char *description = obs_property_description(property);
@@ -300,14 +300,105 @@ void log_all_property(obs_source_t *source)
     obs_properties_t *properties = obs_source_properties(source);
     uint32_t flags = obs_properties_get_flags(properties);
     const char *source_name = obs_source_get_name(source);
-    blog(LOG_INFO, "source name: %s, properties flags: %u", source_name, flags);
+    blog(LOG_INFO, "source name: %s, properties flags: %u, -----log_all_property-----", source_name, flags);
     
     uint32_t index = 0;
     obs_property_t *property = obs_properties_first(properties);
     while (property) {
         index ++;
-        log_property(property, index);
+        log_obs_property(property, index);
         obs_property_next(&property);
     }
+}
+
+// obs-data.h
+const char* DATA_TYPE_NAME[] = {
+    "OBS_DATA_NULL",
+    "OBS_DATA_STRING",
+    "OBS_DATA_NUMBER",
+    "OBS_DATA_BOOLEAN",
+    "OBS_DATA_OBJECT",
+    "OBS_DATA_ARRAY",
+};
+
+const char* DATA_NUMBER_TYPE[] = {
+    "OBS_DATA_NUM_INVALID",
+    "OBS_DATA_NUM_INT",
+    "OBS_DATA_NUM_DOUBLE",
+};
+
+void log_obs_data(obs_data_t *data, uint32_t depth)
+{
+    uint32_t index = 0;
+    obs_data_item_t *data_item = NULL;
+    for (data_item = obs_data_first(data); data_item; obs_data_item_next(&data_item)) {
+        index ++;
+        
+        enum obs_data_type data_type = obs_data_item_gettype(data_item);
+        const char *item_name = obs_data_item_get_name(data_item);
+
+        switch (data_type) {
+            case OBS_DATA_NULL: {
+                blog(LOG_INFO, "[%u]    [%u] data_type: %s, name:%s, value:null", depth, index, DATA_TYPE_NAME[data_type], item_name);
+            }
+                break;
+            case OBS_DATA_STRING: {
+                const char *item_value = obs_data_item_get_string(data_item);
+                blog(LOG_INFO, "[%u]    [%u] data_type: %s, name:%s, value:%s", depth, index, DATA_TYPE_NAME[data_type], item_name, item_value);
+            }
+                break;
+            case OBS_DATA_NUMBER: {
+                obs_data_number_type num_type = obs_data_item_numtype(data_item);
+                switch (num_type) {
+                    case OBS_DATA_NUM_INT: {
+                        long long item_value = obs_data_item_get_int(data_item);
+                        blog(LOG_INFO, "[%u]    [%u] data_type: %s, name:%s, value:%lld", depth, index, DATA_TYPE_NAME[data_type], item_name, item_value);
+                    }
+                        break;
+                    case OBS_DATA_NUM_DOUBLE: {
+                        double item_value = obs_data_item_get_double(data_item);
+                        blog(LOG_INFO, "[%u]    [%u] data_type: %s, name:%s, value:%lf", depth, index, DATA_TYPE_NAME[data_type], item_name, item_value);
+                    }
+                        break;
+                    case OBS_DATA_NUM_INVALID: {
+                        blog(LOG_INFO, "[%u]    [%u] data_type: %s, name:%s, value:'invalid'.", depth, index, DATA_TYPE_NAME[data_type], item_name);
+                    }
+                        break;
+                }
+            }
+                break;
+            case OBS_DATA_BOOLEAN: {
+                bool item_value = obs_data_item_get_bool(data_item);
+                blog(LOG_INFO, "[%u]    [%u] data_type: %s, name:%s, value:%s", depth, index, DATA_TYPE_NAME[data_type], item_name, B2S(item_value));
+            }
+                break;
+            case OBS_DATA_OBJECT: {
+                obs_data_t *data_ = obs_data_item_get_obj(data_item);
+                log_obs_data(data_, depth + 1);
+            }
+                break;
+            case OBS_DATA_ARRAY: {
+                obs_data_array_t *data_array = obs_data_item_get_array(data_item);
+                size_t count = obs_data_array_count(data_array);
+                for (size_t i = 0; i < count; i ++) {
+                    obs_data_t *data_ = obs_data_array_item(data_array, i);
+                    log_obs_data(data_, depth + 1);
+                }
+                obs_data_array_release(data_array);
+            }
+                break;
+            default:
+                break;
+        }
+    }
+}
+
+void log_all_settting(obs_source_t *source)
+{
+    const char *source_name = obs_source_get_name(source);
+    blog(LOG_INFO, "source name: %s, -----log_all_settting-----", source_name);
+    
+    obs_data_t *settings = obs_source_get_settings(source);
+    log_obs_data(settings, 0);
 }
 #endif

@@ -21,6 +21,7 @@
 #include "qt-wrappers.hpp"
 #include "display-helpers.hpp"
 #include "properties-view.hpp"
+#include "seker.h"
 
 #include <QCloseEvent>
 #include <QScreen>
@@ -370,6 +371,9 @@ void OBSBasicProperties::on_buttonBox_clicked(QAbstractButton *button)
 
 		view->ReloadProperties();
 	}
+#ifdef _DEBUG
+    log_all_settting(source);
+#endif
 }
 
 void OBSBasicProperties::DrawPreview(void *data, uint32_t cx, uint32_t cy)

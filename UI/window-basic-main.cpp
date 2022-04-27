@@ -4088,7 +4088,10 @@ void OBSBasic::SceneItemAdded(void *data, calldata_t *params)
 void OBSBasic::SourceCreated(void *data, calldata_t *params)
 {
 	obs_source_t *source = (obs_source_t *)calldata_ptr(params, "source");
+#ifdef _DEBUG
     log_all_property(source);
+    log_all_settting(source);
+#endif
 
 	if (obs_scene_from_source(source) != NULL)
 		QMetaObject::invokeMethod(static_cast<OBSBasic *>(data),
